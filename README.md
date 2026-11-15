@@ -211,13 +211,10 @@ The demo astronaut's daily health readings, the extra radiation added on solar s
 
 ## The team
 
-SaiNayanika Vakkalanka set up the repo, wrote the simulated mission generator, worked with Shoury on the first dashboard and 
-health checks, and gave the presentation.
+SaiNayanika Vakkalanka set up the repo, wrote the simulated mission generator, worked on the first dashboard,  
+health checks, website setup, the five environments, and gave the presentation.
 
-Shoury Vasishta built most of the website: the five environments, the routine and rewards, daily storage and crew photos, 
-the NASA data, the charts, the Guide, the sleep tracker, the voice mood check, the typo check, symptoms, flight surgeon summary 
+Shoury Vasishta worked on the routine and rewards, daily storage and crew photos, the charts, the Guide, the sleep tracker, the voice mood check, symptoms, flight surgeon summary 
 and PIN. Shoury also did the research and the documentation.
 
 The team used Claude, an AI assistant made by Anthropic, to help write and improve the code for these features.
-
-Thanks to our parents for supporting us and helping with the coding and installation.
