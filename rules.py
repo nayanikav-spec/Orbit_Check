@@ -6,6 +6,8 @@ Keep the two in sync: the Guide tab renders its table straight from LIMITS.
 """
 from dataclasses import dataclass
 
+from environments import DEFAULT_ENV, env
+
 import numpy as np
 import pandas as pd
 
@@ -104,8 +106,17 @@ def fmt(ind, v):
     return f"{v:.{DECIMALS[ind]}f}"
 
 
-def status(ind, v):
-    return LIMITS[ind].status(v)
+def limits(ind, env_key=DEFAULT_ENV):
+    """Limits for one indicator. Radiation depends on where the mission is."""
+    if ind != "radiation_msv" or env_key == DEFAULT_ENV:
+        return LIMITS[ind]
+    e = env(env_key)
+    return Limits(warn_hi=e.rad_warn, alert_hi=e.rad_alert,
+                  source=f"Typical here: {e.expected_msv} mSv/day (published measurement). Cut-offs: team-set")
+
+
+def status(ind, v, env_key=DEFAULT_ENV):
+    return limits(ind, env_key).status(v)
 
 
 def baseline(df, ind, idx, window=BASELINE_DAYS):
@@ -144,7 +155,7 @@ def _anomaly_flag(df, idx):
                  "Retake today's readings. If they hold, mention it at your next medical conference.")
 
 
-def evaluate(df, idx=None):
+def evaluate(df, idx=None, env_key=DEFAULT_ENV):
     """Return a list of flags for one mission day (0-based row index)."""
     idx = len(df) - 1 if idx is None else idx
     row = df.iloc[idx]
@@ -152,12 +163,14 @@ def evaluate(df, idx=None):
 
     for ind in INDICATORS:
         v = row[ind]
-        s, b = status(ind, v), baseline(df, ind, idx)
+        s, b = status(ind, v, env_key), baseline(df, ind, idx)
         hazard, risk = HAZARD[ind]
         reading = f"{LABELS[ind]} is {fmt(ind, v)} {UNITS[ind]}"
         if s != "ok":
             level = s
             why = f"{reading}, outside the {'urgent' if s == 'alert' else 'caution'} limit."
+            if ind == "radiation_msv":
+                why += f" A typical day in the {env(env_key).short.lower()} is about {env(env_key).expected_msv} mSv."
             if b:
                 why += f" Your own {BASELINE_DAYS}-day average is {fmt(ind, b[0])}."
         elif b and b[1] > 0 and abs(v - b[0]) / b[1] >= Z_LIMIT:
@@ -179,7 +192,7 @@ def evaluate(df, idx=None):
             f"NASA's DONKI space-weather database recorded a {sep} solar particle event{when}. "
             "Bursts of fast protons from the Sun can raise your dose within hours.",
             *HAZARD["radiation_msv"],
-            SURGEON + "Shelter in the most shielded part of the spacecraft until ground control gives the all-clear."))
+            SURGEON + f"Go to {env(env_key).shelter} until the all-clear."))
 
     # Hypertensive crisis
     if row["systolic"] >= BP_CRISIS[0] or row["diastolic"] >= BP_CRISIS[1]:

@@ -8,6 +8,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from environments import DEFAULT_ENV, env
 from nasa import SEVERITY_WORDS, sep_events
 
 # Default replay window: covers the May 2024 solar storms.
@@ -16,7 +17,7 @@ DEFAULT_START = date(2024, 4, 1)
 SEP_DOSE = {2: 1.4, 1: 0.45}
 
 
-def generate_mission(days=90, seed=42, start=DEFAULT_START):
+def generate_mission(days=90, seed=42, start=DEFAULT_START, env_key=DEFAULT_ENV):
     rng = np.random.default_rng(seed)
     d = np.arange(1, days + 1)
     df = pd.DataFrame({"day": d, "date": pd.date_range(start, periods=days)})
@@ -29,7 +30,8 @@ def generate_mission(days=90, seed=42, start=DEFAULT_START):
     df["temp_c"] = rng.normal(36.7, 0.12, days)
     df["sleep_hrs"] = rng.normal(7.7, 0.3, days)
     df["mood"] = rng.normal(4.2, 0.4, days)
-    df["radiation_msv"] = rng.normal(0.35, 0.03, days)   # typical ISS-like daily dose
+    e = env(env_key)
+    df["radiation_msv"] = rng.normal(e.expected_msv, e.expected_msv * 0.08, days)   # typical dose here
 
     # Injected health problems so the demo has something to catch
     dip = (d >= 40) & (d <= 55)                      # sleep loss + low mood + higher HR
@@ -48,12 +50,12 @@ def generate_mission(days=90, seed=42, start=DEFAULT_START):
     ev = sep_events()
     ev = ev[(ev["severity"] > 0) & ev["date"].between(df["date"].iloc[0], df["date"].iloc[-1])]
     if len(ev):
-        for _, e in ev.iterrows():
-            i = df.index[df["date"] == e["date"]][0]
-            df.loc[i, "radiation_msv"] += SEP_DOSE[e["severity"]]
-            df.loc[i, "sep_event"] = SEVERITY_WORDS[e["severity"]]
+        for _, ev_row in ev.iterrows():
+            i = df.index[df["date"] == ev_row["date"]][0]
+            df.loc[i, "radiation_msv"] += SEP_DOSE[ev_row["severity"]] * e.sep_multiplier
+            df.loc[i, "sep_event"] = SEVERITY_WORDS[ev_row["severity"]]
     elif sep_events().empty:                         # no NASA file: keep a demo spike
-        df.loc[d == 60, "radiation_msv"] += 1.4
+        df.loc[d == 60, "radiation_msv"] += 1.4 * e.sep_multiplier
 
     df["mood"] = df["mood"].round().clip(1, 5).astype(int)
     df["radiation_msv"] = df["radiation_msv"].clip(lower=0)
